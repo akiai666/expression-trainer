@@ -1,4 +1,7 @@
 node_modules/
+.runtime-data/
+.electron-cache/
+.npm-cache/
 models/*.onnx
 models/sherpa-onnx-*/
 dist/

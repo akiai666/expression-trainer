@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>宇宙无敌表达训练系统</title>
+  <title>表达训练</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,24 +12,43 @@
 
   <!-- 主布局：三列 -->
   <div class="layout">
-    <!-- 左栏：表达分析 -->
+    <!-- 左栏：本次分析 / 训练历史 -->
     <aside class="panel-left">
-      <div class="panel-title">📊 表达分析</div>
-      <div class="stat-row">
-        <span class="stat-label">笼统词</span>
-        <span id="stat-vague" class="stat-value stat-red">0</span>
+      <div class="left-tabs" role="tablist" aria-label="左侧功能">
+        <button id="tab-analysis" class="left-tab active" role="tab" aria-selected="true">本次分析</button>
+        <button id="tab-history" class="left-tab" role="tab" aria-selected="false">训练历史</button>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">填充词</span>
-        <span id="stat-fillers" class="stat-value stat-orange">0</span>
+
+      <div id="analysis-panel" class="left-panel-content" role="tabpanel">
+        <div class="stat-row">
+          <span class="stat-label">笼统词</span>
+          <span id="stat-vague" class="stat-value stat-yellow">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">填充词</span>
+          <span id="stat-fillers" class="stat-value stat-red">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">犹豫词</span>
+          <span id="stat-hedges" class="stat-value stat-orange">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">表达密度</span>
+          <span id="stat-density" class="stat-value stat-green">--</span>
+        </div>
+
+        <div class="color-legend" aria-label="字幕颜色说明">
+          <div class="legend-title">字幕颜色</div>
+          <div class="legend-item"><span class="legend-dot legend-filler"></span><span>填充词</span></div>
+          <div class="legend-item"><span class="legend-dot legend-hedge"></span><span>犹豫词</span></div>
+          <div class="legend-item"><span class="legend-dot legend-vague"></span><span>笼统词</span></div>
+          <div class="legend-item"><span class="legend-dot legend-emotion"></span><span>情绪词</span></div>
+        </div>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">犹豫词</span>
-        <span id="stat-hedges" class="stat-value stat-yellow">0</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">表达密度</span>
-        <span id="stat-density" class="stat-value stat-green">--</span>
+
+      <div id="history-panel" class="left-panel-content history-panel hidden" role="tabpanel">
+        <div id="history-list" class="history-list"></div>
+        <div id="history-empty" class="history-empty">还没有训练记录</div>
       </div>
     </aside>
 
@@ -37,7 +56,7 @@
     <main class="main-area">
       <!-- 顶部栏 -->
       <div class="topbar">
-        <span class="app-title">宇宙无敌表达训练系统</span>
+        <span class="app-title">表达训练</span>
         <div class="topbar-right">
           <span id="timer" class="timer">00:00</span>
           <button id="btn-prompt-editor" class="btn-icon" title="训练规则">🎯</button>
@@ -134,6 +153,8 @@
         <h2>📋 表达分析报告</h2>
         <div class="modal-header-actions">
           <button id="btn-copy-report" class="btn-sm">📋 复制全文</button>
+          <button id="btn-export-html" class="btn-sm btn-report-export">⬇️ 导出 HTML</button>
+          <button id="btn-export-markdown" class="btn-sm btn-report-export">⬇️ 导出 Markdown</button>
           <button id="btn-close-report" class="btn-close">×</button>
         </div>
       </div>

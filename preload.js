@@ -29,7 +29,14 @@ contextBridge.exposeInMainWorld('api', {
   // AI反馈
   getRealtimeFeedback: (text) => ipcRenderer.invoke('get-realtime-feedback', text),
   getFinalReport: (data) => ipcRenderer.invoke('get-final-report', data),
+  renderReport: (data) => ipcRenderer.invoke('render-report', data),
+
+  // 训练历史
+  listHistory: () => ipcRenderer.invoke('history-list'),
+  getHistory: (id) => ipcRenderer.invoke('history-get', id),
+  saveHistory: (record) => ipcRenderer.invoke('history-save', record),
+  deleteHistory: (id) => ipcRenderer.invoke('history-delete', id),
 
   // 文件保存
-  saveFile: (content, filename) => ipcRenderer.invoke('save-file', content, filename),
+  saveFile: (content, filename, format) => ipcRenderer.invoke('save-file', content, filename, format),
 });

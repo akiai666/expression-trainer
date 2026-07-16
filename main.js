@@ -4,6 +4,17 @@ const fs = require('fs');
 const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
 const { sendFeedback, sendReport } = require('./lib/ai-feedback');
+const { normalizeReport, renderReportFragment, renderReportHtml, renderReportMarkdown } = require('./lib/report-renderer');
+const { createHistoryStore } = require('./lib/history-store');
+
+const runtimeDir = path.join(__dirname, '.runtime-data');
+const userDataDir = path.join(runtimeDir, 'user-data');
+const sessionDataDir = path.join(runtimeDir, 'session-data');
+fs.mkdirSync(userDataDir, { recursive: true });
+fs.mkdirSync(sessionDataDir, { recursive: true });
+app.setPath('userData', userDataDir);
+app.setPath('sessionData', sessionDataDir);
+const historyStore = createHistoryStore(userDataDir);
 
 let mainWindow;
 let settingsWindow;
@@ -214,12 +225,15 @@ ipcMain.handle('analyze-text', (event, text) => {
 });
 
 // 文件保存
-ipcMain.handle('save-file', async (event, content, filename) => {
+ipcMain.handle('save-file', async (event, content, filename, format = 'md') => {
   const { dialog } = require('electron');
+  const isHtml = format === 'html' || String(filename).toLowerCase().endsWith('.html');
   const result = await dialog.showSaveDialog(mainWindow, {
     title: '保存报告',
     defaultPath: path.join(app.getPath('desktop'), filename),
-    filters: [{ name: 'Markdown', extensions: ['md'] }]
+    filters: isHtml
+      ? [{ name: 'HTML 文件', extensions: ['html'] }]
+      : [{ name: 'Markdown 文件', extensions: ['md'] }]
   });
 
   if (!result.canceled && result.filePath) {
@@ -247,6 +261,54 @@ ipcMain.handle('get-final-report', async (event, { fullText, stats }) => {
   try {
     const report = await sendReport(fullText, stats, settings, customPrompt);
     return { success: true, report };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 报告渲染：统一在主进程完成清洗和导出，渲染层不直接接触未经处理的 AI 文本。
+ipcMain.handle('render-report', (event, { report, fullText, stats }) => {
+  const context = { fullText, stats, title: '表达训练报告' };
+  const model = normalizeReport(report, context);
+  return {
+    model,
+    fragmentHtml: renderReportFragment(report, context),
+    html: renderReportHtml(report, context),
+    markdown: renderReportMarkdown(report, context)
+  };
+});
+
+// 训练历史：仅保存在当前设备的 userData/history 目录。
+ipcMain.handle('history-list', () => {
+  try {
+    return { success: true, records: historyStore.list() };
+  } catch (error) {
+    return { success: false, records: [], error: error.message };
+  }
+});
+
+ipcMain.handle('history-get', (event, id) => {
+  try {
+    const record = historyStore.get(id);
+    return record
+      ? { success: true, record }
+      : { success: false, error: '历史记录不存在' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('history-save', (event, record) => {
+  try {
+    return { success: true, record: historyStore.save(record) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('history-delete', (event, id) => {
+  try {
+    return { success: true, deleted: historyStore.delete(id) };
   } catch (error) {
     return { success: false, error: error.message };
   }

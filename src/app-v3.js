@@ -1,4 +1,4 @@
-// 宇宙无敌表达训练系统 V2
+// 表达训练 V3
 
 class ExpressionTrainer {
   constructor() {

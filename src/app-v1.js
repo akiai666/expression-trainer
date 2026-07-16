@@ -1,4 +1,4 @@
-// 宇宙无敌表达训练系统 - 前端主逻辑
+// 表达训练 - 前端主逻辑
 
 class ExpressionTrainer {
   constructor() {
