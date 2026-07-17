@@ -18,14 +18,14 @@ test('web lexicon returns non-overlapping realtime spans and emotion feedback', 
     fillers: ['就是', '然后'],
     hedges: ['我觉得', '可能'],
     vagueToPrecise: { 很好: ['出色', '清晰', '具体'] },
-    emotions: { 经典: { category: '好', subcategory: 'PH', intensity: 9 } }
+    emotions: { 示例词: { category: '示例', subcategory: 'XX', intensity: 9 } }
   });
-  const result = analyze('我觉得就是然后很好可能经典');
+  const result = analyze('我觉得就是然后很好可能示例词');
   assert.strictEqual(result.fillers.length, 2);
   assert.strictEqual(result.hedges.length, 2);
   assert.strictEqual(result.vagueWords.length, 1);
   assert.strictEqual(result.emotionWords.length, 1);
-  assert.ok(result.suggestions.some(item => item.type === 'emotion' && item.message.includes('经典')));
+  assert.ok(result.suggestions.some(item => item.type === 'emotion' && item.message.includes('示例词')));
   assert.ok(result.spans.every((span, index, spans) => index === 0 || spans[index - 1].end <= span.start));
 });
 
@@ -33,6 +33,24 @@ test('web lexicon filters exaggerated alternatives', () => {
   const { createAnalyzer } = require('../web/lexicon');
   const analyze = createAnalyzer({ fillers: [], hedges: [], vagueToPrecise: { 厉害: ['清晰', '无敌', '碾压级'] }, emotions: {} });
   assert.deepStrictEqual(analyze('厉害').vagueWords[0].alternatives, ['清晰']);
+});
+
+test('web lexicon prefers an ignored local DLUT asset and falls back to public oral data', async () => {
+  const { load } = require('../web/lexicon');
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async url => {
+    calls.push(url);
+    if (url === 'lexicon-data.local.json') return { ok: false, status: 404 };
+    return { ok: true, json: async () => ({ fillers: ['就是'], hedges: [], vagueToPrecise: {}, emotions: {} }) };
+  };
+  try {
+    const analyze = await load();
+    assert.strictEqual(analyze('就是').fillers.length, 1);
+    assert.deepStrictEqual(calls, ['lexicon-data.local.json', 'lexicon-data.json']);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('web history stores newest records and updates by id', () => {
@@ -53,6 +71,8 @@ test('web UI exposes personal history and structured exports without upstream tr
   const html = fs.readFileSync(path.join(root, 'web', 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'web', 'app.js'), 'utf8');
   assert.match(html, /训练历史/);
+  assert.match(html, /情绪词（本地可选）/);
+  assert.match(html, /ir\.dlut\.edu\.cn\/info\/1013\/1142\.htm/);
   assert.match(html, /导出 HTML/);
   assert.match(html, /report-renderer\.js/);
   assert.doesNotMatch(html + app, /posthog|cola-dispatch|宇宙无敌|fxy2311-youyou/i);

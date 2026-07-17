@@ -8,6 +8,12 @@ dist/
 .DS_Store
 .idea/
 
+# 用户从官方渠道自行获取的 DLUT 数据及本地衍生数据
+data/dlut-emotion-ontology.csv
+data/emotion-lexicon.json
+data/tiered-lexicon.json
+web/lexicon-data.local.json
+
 demo-*.html
 prompt-playground.html
 listenhub-*.png

@@ -1,6 +1,17 @@
 # 表达训练：桌面端 + 网页端
 
-一个同时支持 Electron 桌面端和浏览器使用的实时表达训练工具。两端共用完整词库、报告结构和过滤规则；AI 反馈取决于配置的服务商和网络连接。
+> **代码：MIT License**
+>
+> **大连理工大学情感词汇本体及其衍生数据：**
+> 仅供科研及教学使用，不包含在 MIT 授权范围内。
+> 商业使用或公开再分发请向大连理工大学信息检索研究室取得授权。
+>
+> 标准引用：
+> 徐琳宏, 林鸿飞, 潘宇, 任惠, 陈建美.
+> 情感词汇本体的构造.
+> 情报学报, 2008, 27(2):180-185.
+
+一个同时支持 Electron 桌面端和浏览器使用的实时表达训练工具。公开版本内置 MIT 口语规则；DLUT 情感词库由用户在符合其使用条件的前提下自行下载并仅在本地启用。
 
 网页版：[https://akiai.cn/expression-trainer/](https://akiai.cn/expression-trainer/)
 
@@ -95,7 +106,7 @@ npm start
 ┌─────────────────────────────────────────┐
 │ Electron 主进程                          │
 │  ├── Sherpa-ONNX (本地语音识别)          │
-│  ├── 词库匹配 (DLUT + 口语分层词库)       │
+│  ├── 词库匹配 (内置口语规则 + 可选本地 DLUT)│
 │  └── AI反馈 (多后端 HTTP API)            │
 ├─────────────────────────────────────────┤
 │ 渲染进程 (Chromium)                      │
@@ -107,16 +118,22 @@ npm start
 
 ## 词库说明
 
-运行时会合并 DLUT 情感本体、`emotion-lexicon.json` 和 `tiered-lexicon.json`，包含：
+公开仓库不包含 DLUT 原始 CSV，也不包含从其生成的完整浏览器词库。没有 DLUT 时，填充词、犹豫词、笼统词、报告、历史和导出仍可正常使用。
 
-- **130+ 情绪词**：分类（喜怒哀惧恶惊）+ 强度（1-9）
-- **笼统词→精准词映射**：25组高频替代建议
-- **填充词表**：24个常见口头禅
-- **犹豫词表**：19个弱化表达
-- **程度词梯度**：弱→中→强→极 四级
-- **画面化描述**：10组「抽象→具象」转换
-- **犹豫→直接转换**：8组对照示例
-- **口语分层词库**：笼统词、填充词和犹豫词的实时替换建议
+如需在科研或教学场景本地启用 DLUT：
+
+```bash
+# 先显示官方获取和授权说明
+npm run setup:dlut
+
+# 从官方页面手动下载、解压并另存为 UTF-8 CSV 后安装
+npm run setup:dlut -- --source "/绝对路径/情感词汇本体.csv"
+
+# 可选：生成仅供本地自托管使用、且被 Git 忽略的网页词库
+npm run build:web:dlut
+```
+
+官方页面：[大连理工大学信息检索研究室：情感词汇本体-词典](https://ir.dlut.edu.cn/info/1013/1142.htm)。详细边界见 [DATA_LICENSE.md](DATA_LICENSE.md) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 开发
 
@@ -143,8 +160,7 @@ npm run build:web
 │   ├── lexicon.js       # 词库匹配
 │   ├── ai-feedback.js   # AI反馈
 │   └── prompts.js       # Prompt模板
-├── data/
-│   └── emotion-lexicon.json
+├── data/                # 用户本地数据目录（受限数据被 Git 忽略）
 └── models/              # Sherpa-ONNX模型（需下载）
 ```
 
@@ -157,4 +173,4 @@ npm run build:web
 
 ## License
 
-MIT
+程序代码采用 MIT License。DLUT 情感词汇本体及其任何衍生数据不属于 MIT License。

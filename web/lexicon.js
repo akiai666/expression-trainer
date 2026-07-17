@@ -100,10 +100,13 @@
     };
   }
 
-  async function load(url = 'lexicon-data.json') {
-    const response = await fetch(url, { cache: 'no-cache' });
-    if (!response.ok) throw new Error(`词库加载失败（${response.status}）`);
-    return createAnalyzer(await response.json());
+  async function load(urls = ['lexicon-data.local.json', 'lexicon-data.json']) {
+    const candidates = Array.isArray(urls) ? urls : [urls];
+    for (const url of candidates) {
+      const response = await fetch(url, { cache: 'no-cache' });
+      if (response.ok) return createAnalyzer(await response.json());
+    }
+    throw new Error('词库加载失败');
   }
 
   return { blockedTerms, cleanAlternatives, createAnalyzer, load };
