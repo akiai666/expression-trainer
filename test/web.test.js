@@ -35,13 +35,15 @@ test('web lexicon filters exaggerated alternatives', () => {
   assert.deepStrictEqual(analyze('厉害').vagueWords[0].alternatives, ['清晰']);
 });
 
-test('web lexicon prefers an ignored local DLUT asset and falls back to public oral data', async () => {
+test('web lexicon falls back when the server returns an HTML shell for the missing local asset', async () => {
   const { load } = require('../web/lexicon');
   const originalFetch = global.fetch;
   const calls = [];
   global.fetch = async url => {
     calls.push(url);
-    if (url === 'lexicon-data.local.json') return { ok: false, status: 404 };
+    if (url === 'lexicon-data.local.json') {
+      return { ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } };
+    }
     return { ok: true, json: async () => ({ fillers: ['就是'], hedges: [], vagueToPrecise: {}, emotions: {} }) };
   };
   try {

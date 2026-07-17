@@ -103,8 +103,12 @@
   async function load(urls = ['lexicon-data.local.json', 'lexicon-data.json']) {
     const candidates = Array.isArray(urls) ? urls : [urls];
     for (const url of candidates) {
-      const response = await fetch(url, { cache: 'no-cache' });
-      if (response.ok) return createAnalyzer(await response.json());
+      try {
+        const response = await fetch(url, { cache: 'no-cache' });
+        if (response.ok) return createAnalyzer(await response.json());
+      } catch (_) {
+        // 静态服务器可能对缺失文件返回 HTML 入口页，继续尝试公开词库。
+      }
     }
     throw new Error('词库加载失败');
   }
