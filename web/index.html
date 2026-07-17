@@ -3,42 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>宇宙无敌表达训练系统</title>
+  <title>表达训练｜Aki聊AI</title>
   <meta name="description" content="实时语音镜子，帮你看见自己怎么说话">
   <meta name="theme-color" content="#000000">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon-192.svg">
   <link rel="apple-touch-icon" href="icon-192.svg">
   <link rel="stylesheet" href="style.css">
-  <!-- PostHog Analytics (placeholder) -->
-  <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    // PostHog analytics - built-in key
-    const _phKey = localStorage.getItem('posthog_key') || 'phc_x3ibnCJUf9eircWVqJcscsVpDt9XdLmaU5JLB5sSqVY4';
-    posthog.init(_phKey, {api_host:'https://us.i.posthog.com'});
-  </script>
 </head>
 <body>
   <!-- 主布局：三列 -->
   <div class="layout">
-    <!-- 左栏：表达分析 -->
+    <!-- 左栏：表达分析 / 训练历史 -->
     <aside class="panel-left" id="panel-left">
-      <div class="panel-title">📊 表达分析</div>
-      <div class="stat-row">
-        <span class="stat-label">笼统词</span>
-        <span id="stat-vague" class="stat-value stat-red">0</span>
+      <div class="left-tabs" role="tablist" aria-label="左侧功能">
+        <button id="tab-analysis" class="left-tab active" role="tab" aria-selected="true">本次分析</button>
+        <button id="tab-history" class="left-tab" role="tab" aria-selected="false">训练历史</button>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">填充词</span>
-        <span id="stat-fillers" class="stat-value stat-orange">0</span>
+      <div id="analysis-panel" class="left-panel-content" role="tabpanel">
+        <div class="stat-row"><span class="stat-label">笼统词</span><span id="stat-vague" class="stat-value stat-yellow">0</span></div>
+        <div class="stat-row"><span class="stat-label">填充词</span><span id="stat-fillers" class="stat-value stat-red">0</span></div>
+        <div class="stat-row"><span class="stat-label">犹豫词</span><span id="stat-hedges" class="stat-value stat-orange">0</span></div>
+        <div class="stat-row"><span class="stat-label">表达密度</span><span id="stat-density" class="stat-value stat-green">--</span></div>
+        <div class="color-legend" aria-label="字幕颜色说明">
+          <div class="legend-title">字幕颜色</div>
+          <div class="legend-item"><span class="legend-dot legend-filler"></span>填充词</div>
+          <div class="legend-item"><span class="legend-dot legend-hedge"></span>犹豫词</div>
+          <div class="legend-item"><span class="legend-dot legend-vague"></span>笼统词</div>
+          <div class="legend-item"><span class="legend-dot legend-emotion"></span>情绪词</div>
+        </div>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">犹豫词</span>
-        <span id="stat-hedges" class="stat-value stat-yellow">0</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">表达密度</span>
-        <span id="stat-density" class="stat-value stat-green">--</span>
+      <div id="history-panel" class="left-panel-content history-panel hidden" role="tabpanel">
+        <div id="history-list" class="history-list"></div>
+        <div id="history-empty" class="history-empty">还没有训练记录</div>
       </div>
     </aside>
 
@@ -46,7 +43,7 @@
     <main class="main-area">
       <!-- 顶部栏 -->
       <div class="topbar">
-        <span class="app-title">宇宙无敌表达训练系统</span>
+        <span class="app-title">表达训练</span>
         <div class="topbar-right">
           <span id="timer" class="timer">00:00</span>
           <button id="btn-lang-toggle" class="btn-icon" title="切换中/英" style="font-size:12px;font-weight:700;background:#222;border:1px solid #E5007E;border-radius:4px;padding:2px 6px;color:#E5007E;">ZH</button>
@@ -72,7 +69,7 @@
         <div id="subtitle-container" class="subtitle-container">
           <div class="subtitle-line hint">点击下方按钮开始说话</div>
         </div>
-        <div id="watermark-inner" class="watermark-inner">Powered by ExprTrain</div>
+        <div id="watermark-inner" class="watermark-inner">本地词库 · 实时分析</div>
       </div>
 
       <!-- 底部按钮 -->
@@ -135,29 +132,20 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E5007E" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="social-panel hidden" id="social-panel">
-      <a href="https://github.com/fxy2311-youyou" target="_blank" title="GitHub">
+      <a href="https://github.com/akiai666/expression-trainer" target="_blank" title="GitHub">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-      </a>
-      <a href="https://xhslink.com/m/6lPpdmQ6Kic" target="_blank" title="小红书">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm-2-8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
-      </a>
-      <a href="https://x.com/fngugu129289?s=11" target="_blank" title="X / Twitter">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      </a>
-      <a href="#" id="btn-coffee" title="☕ 请我喝杯咖啡">
-        <span style="font-size:18px;">☕</span>
       </a>
     </div>
   </div>
 
   <!-- 水印 + 打赏 -->
-  <div class="watermark" id="watermark">宇宙无敌表达系统 by sisi</div>
+  <div class="watermark" id="watermark">表达训练 · Aki聊AI</div>
 
   <!-- Welcome弹窗 -->
   <div id="welcome-modal" class="modal hidden">
     <div class="modal-content modal-sm">
       <div class="modal-body" style="padding:32px;text-align:center;">
-        <h2 style="font-size:20px;margin-bottom:16px;">🎙️ Welcome to 宇宙无敌表达系统</h2>
+        <h2 style="font-size:20px;margin-bottom:16px;">🎙️ 欢迎使用表达训练</h2>
         <p style="color:#aaa;margin-bottom:24px;font-size:14px;">实时语音镜子，帮你看见自己怎么说话。</p>
         <div style="text-align:left;color:#ccc;font-size:14px;line-height:2;margin-bottom:24px;padding:0 16px;">
           <div>🔴 <strong>实时逐字稿</strong> — 边说边出字，看见自己的表达</div>
@@ -261,6 +249,8 @@
         <h2>📋 表达分析报告</h2>
         <div class="modal-header-actions">
           <button id="btn-copy-report" class="btn-sm">📋 复制全文</button>
+          <button id="btn-export-html" class="btn-sm">⬇️ 导出 HTML</button>
+          <button id="btn-export-markdown" class="btn-sm">⬇️ 导出 Markdown</button>
           <button id="btn-close-report" class="btn-close">×</button>
         </div>
       </div>
@@ -273,33 +263,19 @@
   <div id="tip-modal" class="modal hidden">
     <div class="modal-content modal-sm">
       <div class="modal-header">
-        <h2>💝 联系 sisi</h2>
+        <h2>关于表达训练</h2>
         <button id="btn-close-tip" class="btn-close">×</button>
       </div>
       <div class="modal-body" style="text-align:center;padding:32px;">
-        <p style="color:#aaa;font-size:14px;margin-bottom:16px;">感谢使用宇宙无敌表达系统 ✨</p>
-        <p style="color:#ccc;font-size:14px;">微信联系 sisi，获取更多训练资源</p>
-        <p style="color:#666;font-size:12px;margin-top:16px;">(后续会加微信收款码)</p>
+        <p style="color:#aaa;font-size:14px;margin-bottom:16px;">个人二创版本 · Aki聊AI</p>
+        <p style="color:#ccc;font-size:14px;">网页训练历史只保存在当前浏览器。</p>
       </div>
     </div>
   </div>
 
-  <!-- 去水印弹窗 -->
-  <!-- 打赏弹窗 -->
-  <div id="coffee-modal" class="modal hidden">
-    <div class="modal-content modal-sm">
-      <div class="modal-header">
-        <h2>☕ 请我喝杯咖啡</h2>
-        <button id="btn-close-coffee" class="btn-close">×</button>
-      </div>
-      <div class="modal-body" style="text-align:center;padding:32px;">
-        <p style="color:#ccc;font-size:15px;margin-bottom:24px;line-height:1.8;">支持你喜欢的工具继续迭代。<br>每一笔都会让这个系统变得更好。</p>
-        <div id="coffee-qr" style="margin-bottom:16px;"><img src="coffee-qr.jpg" alt="微信收款码" style="width:180px;border-radius:8px;"></div>
-        <p style="color:#666;font-size:12px;">微信扫码打赏</p>
-      </div>
-    </div>
-  </div>
-
+  <script src="report-renderer.js"></script>
+  <script src="lexicon.js"></script>
+  <script src="history.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "test": "node test/lexicon.test.js && node test/prompts.test.js && node test/report-renderer.test.js && node test/ai-feedback.test.js && node test/ui-report.test.js && node test/history-store.test.js"
+    "build:web": "node scripts/build-web-assets.js",
+    "test": "node test/lexicon.test.js && node test/prompts.test.js && node test/report-renderer.test.js && node test/ai-feedback.test.js && node test/ui-report.test.js && node test/history-store.test.js && node test/web.test.js"
   },
   "keywords": ["expression", "training", "speech", "asr", "chinese"],
   "author": "sisi",
