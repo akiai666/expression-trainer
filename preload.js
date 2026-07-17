@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   getRealtimeFeedback: (text) => ipcRenderer.invoke('get-realtime-feedback', text),
   getFinalReport: (data) => ipcRenderer.invoke('get-final-report', data),
   renderReport: (data) => ipcRenderer.invoke('render-report', data),
+  testLLMConnection: (settings) => ipcRenderer.invoke('test-llm-connection', settings),
 
   // 训练历史
   listHistory: () => ipcRenderer.invoke('history-list'),
