@@ -390,6 +390,7 @@ const PROVIDER_ENDPOINTS = {
   openai: 'https://api.openai.com/v1/chat/completions',
   deepseek: 'https://api.deepseek.com/v1/chat/completions'
 };
+let lastAIError = '';
 
 function getProviderConfig(settings) {
   const { provider, apiKey, model, customEndpoint } = settings;
@@ -407,7 +408,10 @@ function getProviderConfig(settings) {
 
 async function callAI(messages, maxTokens = 200) {
   const settings = loadSettings();
-  if (!settings.apiKey) return null;
+  if (!settings.apiKey) {
+    lastAIError = '未配置 API Key';
+    return null;
+  }
 
   const config = getProviderConfig(settings);
   try {
@@ -426,14 +430,17 @@ async function callAI(messages, maxTokens = 200) {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API ${response.status}: ${error}`);
+      throw new Error(`AI 服务返回 HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('AI 服务没有返回有效内容');
+    lastAIError = '';
+    return content;
   } catch (err) {
     console.error('[AI] Error:', err);
+    lastAIError = err?.message || 'AI 请求失败';
     return null;
   }
 }
@@ -564,6 +571,7 @@ class ExpressionTrainer {
     this.bindEvents();
     this.showWelcome();
     this.loadHistoryList();
+    this.showAIStatus();
     track('page_view');
   }
 
@@ -814,6 +822,8 @@ class ExpressionTrainer {
     };
     saveSettings(settings);
     this.settingsModal.classList.add('hidden');
+    const status = ExpressionRuntime.getAIStatus(settings);
+    this.addFeedbackItem(status.enabled ? 'AI 深度反馈已开启' : status.message, 'ai');
   }
 
   // ===== Prompt Editor =====
@@ -839,9 +849,11 @@ class ExpressionTrainer {
 
   // ===== 录制控制 (Web Speech API) =====
   startRecording() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = ExpressionRuntime.getSpeechRecognition(window);
     if (!SpeechRecognition) {
-      this.showError('浏览器不支持语音识别，请使用Chrome/Edge/Safari');
+      const message = '当前浏览器不支持实时语音识别，请使用最新版 Chrome、Edge 或 Safari；也可以使用“粘贴逐字稿”';
+      this.showError(message);
+      this.addFeedbackItem(message, 'ai');
       return;
     }
 
@@ -876,6 +888,10 @@ class ExpressionTrainer {
       if (event.error === 'no-speech') return; // normal
       if (event.error === 'aborted') return;
       console.error('[ASR] Error:', event.error);
+      const message = ExpressionRuntime.getSpeechErrorMessage(event.error);
+      this.showError(message);
+      this.addFeedbackItem(message, 'ai');
+      if (this.isRecording) this.stopRecording();
     };
 
     this.recognition.onend = () => {
@@ -905,6 +921,7 @@ class ExpressionTrainer {
     this.currentSource = 'recording';
     this.resetStats();
     this.subtitleContainer.innerHTML = '';
+    this.showAIStatus();
 
     // UI
     this.btnStart.classList.add('hidden');
@@ -1060,25 +1077,8 @@ class ExpressionTrainer {
       });
       this.updateStatsDisplay();
 
-      // 笼统词 → 反馈栏弹替换建议
-      if (analysis.vagueWords.length > 0) {
-        analysis.vagueWords.forEach(item => {
-          const alts = item.alternatives.slice(0, 3).join(' / ');
-          this.addFeedbackItem(`「${item.word}」→ ${alts}`, 'vague');
-        });
-      }
-      // 填充词提醒
-      if (analysis.fillers.length >= 2) {
-        const uniqueFillers = [...new Set(analysis.fillers.map(f => f.word))].slice(0, 3);
-        this.addFeedbackItem(`填充词：${uniqueFillers.join('、')}——试试停顿`, 'filler');
-      }
-      // 犹豫词提醒
-      if (analysis.hedges.length >= 1) {
-        const uniqueHedges = [...new Set(analysis.hedges.map(h => h.word))].slice(0, 2);
-        this.addFeedbackItem(`「${uniqueHedges.join('」「')}」→ 直接说`, 'hedge');
-      }
-      (analysis.suggestions || []).filter(item => item.type === 'emotion')
-        .forEach(item => this.addFeedbackItem(item.message, 'emotion'));
+      ExpressionRuntime.buildLocalFeedback(analysis)
+        .forEach(item => this.addFeedbackItem(item.message, item.type));
     }
     return analysis;
   }
@@ -1098,6 +1098,11 @@ class ExpressionTrainer {
 
   // ===== 实时AI反馈 =====
   requestRealtimeFeedback() {
+    const aiStatus = ExpressionRuntime.getAIStatus(loadSettings());
+    if (!aiStatus.enabled) {
+      this.addFeedbackItem(aiStatus.message, 'ai');
+      return Promise.resolve(null);
+    }
     this.feedbackRequestQueued = true;
     if (this.feedbackRequest) return this.feedbackRequest;
     this.feedbackRequest = (async () => {
@@ -1112,6 +1117,7 @@ class ExpressionTrainer {
         if (result) result.split('\n').filter(line => line.trim()).forEach(line => {
           this.addFeedbackItem(line.trim(), this.classifyFeedback(line.trim()));
         });
+        if (!result && lastAIError) this.addFeedbackItem(`AI 深度反馈失败：${lastAIError}`, 'ai');
       }
     })().finally(() => { this.feedbackRequest = null; });
     return this.feedbackRequest;
@@ -1201,6 +1207,15 @@ class ExpressionTrainer {
     this.reportModal.classList.remove('hidden');
     track('report_generate');
 
+    const aiStatus = ExpressionRuntime.getAIStatus(loadSettings());
+    if (!aiStatus.enabled) {
+      this.lastReport = this.buildLocalReport('未配置 API Key，完整优化稿需要在设置中启用 AI');
+      this.renderReport(this.lastReport);
+      this.addFeedbackItem(aiStatus.message, 'ai');
+      this.saveCurrentTraining(this.currentSource, this.lastReport);
+      return;
+    }
+
     const customPrompt = loadCustomPrompt();
     const prompt = getStructuredReportPrompt(this.fullText, this.stats, customPrompt);
     const messages = [
@@ -1214,9 +1229,9 @@ class ExpressionTrainer {
       this.renderReport(result);
       track('report_success');
     } else {
-      this.lastReport = this.buildLocalReport('请检查设置中的 API Key 或网络连接');
+      this.lastReport = this.buildLocalReport(lastAIError || '请检查设置中的 API Key 或网络连接');
       this.renderReport(this.lastReport);
-      this.addFeedbackItem('AI报告未生成，已展示本地词库分析', 'ai');
+      this.addFeedbackItem(`AI 报告失败：${lastAIError || '请检查设置或网络'}；已展示本地词库报告`, 'ai');
     }
     this.saveCurrentTraining(this.currentSource, this.lastReport);
   }
@@ -1321,6 +1336,11 @@ class ExpressionTrainer {
     this.vocabularyHits = [];
     this.updateStatsDisplay();
     this.feedbackContent.innerHTML = '';
+  }
+
+  showAIStatus() {
+    const status = ExpressionRuntime.getAIStatus(loadSettings());
+    if (!status.enabled) this.addFeedbackItem(status.message, 'ai');
   }
 
   showError(msg) {

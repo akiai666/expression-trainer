@@ -7,6 +7,16 @@
     '无敌', '最强', '第一', '绝对', '100%', '百分之百', '必然',
     '碾压级', '毁灭性', '史诗级', '爆炸级', '天花板', '封神'
   ]);
+  const traditionalCharacterMap = {
+    '額': '额', '個': '个', '後': '后', '這': '这', '對': '对',
+    '總': '总', '說': '说', '許': '许', '應': '应', '覺': '觉',
+    '種': '种', '來': '来', '開': '开', '難': '难', '過': '过',
+    '氣': '气', '歡': '欢', '討': '讨', '厭': '厌'
+  };
+
+  function normalizeForAnalysis(value) {
+    return Array.from(String(value || ''), character => traditionalCharacterMap[character] || character).join('');
+  }
 
   function uniqueWords(values) {
     return [...new Set((Array.isArray(values) ? values : [])
@@ -19,12 +29,13 @@
   }
 
   function createAnalyzer(source = {}) {
-    const fillers = new Set(uniqueWords(source.fillers));
-    const hedges = new Set(uniqueWords(source.hedges));
+    const fillers = new Set(uniqueWords(source.fillers).map(normalizeForAnalysis));
+    const hedges = new Set(uniqueWords(source.hedges).map(normalizeForAnalysis));
     const vagueToPrecise = Object.fromEntries(Object.entries(source.vagueToPrecise || {})
-      .map(([word, values]) => [word, cleanAlternatives(values)])
+      .map(([word, values]) => [normalizeForAnalysis(word), cleanAlternatives(values)])
       .filter(([, values]) => values.length));
-    const emotions = source.emotions || {};
+    const emotions = Object.fromEntries(Object.entries(source.emotions || {})
+      .map(([word, details]) => [normalizeForAnalysis(word), details]));
     const dictionary = new Set([
       ...fillers,
       ...hedges,
@@ -34,20 +45,22 @@
     const maxWordLength = Math.max(1, ...[...dictionary].map(word => word.length));
 
     function segment(text) {
+      const normalizedText = normalizeForAnalysis(text);
       const tokens = [];
       let index = 0;
-      while (index < text.length) {
+      while (index < normalizedText.length) {
         let match = '';
-        for (let length = Math.min(maxWordLength, text.length - index); length > 0; length -= 1) {
-          const candidate = text.slice(index, index + length);
+        for (let length = Math.min(maxWordLength, normalizedText.length - index); length > 0; length -= 1) {
+          const candidate = normalizedText.slice(index, index + length);
           if (dictionary.has(candidate)) {
             match = candidate;
             break;
           }
         }
-        const word = match || text[index];
-        tokens.push({ word, start: index, end: index + word.length });
-        index += word.length;
+        const normalizedWord = match || normalizedText[index];
+        const end = index + normalizedWord.length;
+        tokens.push({ word: text.slice(index, end), normalizedWord, start: index, end });
+        index = end;
       }
       return tokens;
     }
@@ -55,21 +68,21 @@
     return function analyzeText(value) {
       const text = String(value || '');
       const tokens = segment(text);
-      const fillerHits = tokens.filter(token => fillers.has(token.word));
-      const hedgeHits = tokens.filter(token => hedges.has(token.word));
-      const vagueWords = tokens.filter(token => vagueToPrecise[token.word]).map(token => ({
+      const fillerHits = tokens.filter(token => fillers.has(token.normalizedWord));
+      const hedgeHits = tokens.filter(token => hedges.has(token.normalizedWord));
+      const vagueWords = tokens.filter(token => vagueToPrecise[token.normalizedWord]).map(token => ({
         ...token,
-        alternatives: [...vagueToPrecise[token.word]]
+        alternatives: [...vagueToPrecise[token.normalizedWord]]
       }));
-      const emotionWords = tokens.filter(token => emotions[token.word]).map(token => ({
+      const emotionWords = tokens.filter(token => emotions[token.normalizedWord]).map(token => ({
         ...token,
-        ...emotions[token.word]
+        ...emotions[token.normalizedWord]
       }));
       const spans = tokens.flatMap(token => {
-        if (fillers.has(token.word)) return [{ ...token, type: 'filler' }];
-        if (hedges.has(token.word)) return [{ ...token, type: 'hedge' }];
-        if (vagueToPrecise[token.word]) return [{ ...token, type: 'vague' }];
-        if (emotions[token.word]) return [{ ...token, type: 'emotion' }];
+        if (fillers.has(token.normalizedWord)) return [{ ...token, type: 'filler' }];
+        if (hedges.has(token.normalizedWord)) return [{ ...token, type: 'hedge' }];
+        if (vagueToPrecise[token.normalizedWord]) return [{ ...token, type: 'vague' }];
+        if (emotions[token.normalizedWord]) return [{ ...token, type: 'emotion' }];
         return [];
       });
       const suggestions = [];
@@ -113,5 +126,5 @@
     throw new Error('词库加载失败');
   }
 
-  return { blockedTerms, cleanAlternatives, createAnalyzer, load };
+  return { blockedTerms, cleanAlternatives, normalizeForAnalysis, createAnalyzer, load };
 });

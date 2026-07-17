@@ -35,6 +35,22 @@ test('web lexicon filters exaggerated alternatives', () => {
   assert.deepStrictEqual(analyze('厉害').vagueWords[0].alternatives, ['清晰']);
 });
 
+test('web lexicon analyzes traditional ASR text without changing highlight offsets', () => {
+  const { createAnalyzer } = require('../web/lexicon');
+  const analyze = createAnalyzer({
+    fillers: ['这个', '然后'],
+    hedges: ['我觉得', '可能'],
+    vagueToPrecise: { 很好: ['具体', '清晰'] },
+    emotions: {}
+  });
+  const text = '我覺得這個系統很好，然後可能再調整';
+  const result = analyze(text);
+  assert.deepStrictEqual(result.fillers.map(item => item.word), ['這個', '然後']);
+  assert.deepStrictEqual(result.hedges.map(item => item.word), ['我覺得', '可能']);
+  assert.deepStrictEqual(result.vagueWords.map(item => item.word), ['很好']);
+  result.spans.forEach(span => assert.strictEqual(text.slice(span.start, span.end), span.word));
+});
+
 test('web lexicon falls back when the server returns an HTML shell for the missing local asset', async () => {
   const { load } = require('../web/lexicon');
   const originalFetch = global.fetch;
@@ -72,13 +88,15 @@ test('web history stores newest records and updates by id', () => {
 test('web UI exposes personal history and structured exports without upstream tracking', () => {
   const html = fs.readFileSync(path.join(root, 'web', 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'web', 'app.js'), 'utf8');
+  const runtime = fs.readFileSync(path.join(root, 'web', 'runtime.js'), 'utf8');
   assert.match(html, /训练历史/);
   assert.match(html, /情绪词（本地可选）/);
   assert.match(html, /ir\.dlut\.edu\.cn\/info\/1013\/1142\.htm/);
   assert.match(html, /导出 HTML/);
   assert.match(html, /report-renderer\.js/);
   assert.doesNotMatch(html + app, /posthog|cola-dispatch|宇宙无敌|fxy2311-youyou/i);
-  assert.match(app, /webkitSpeechRecognition/);
+  assert.match(html, /runtime\.js/);
+  assert.match(runtime, /webkitSpeechRecognition/);
   assert.match(app, /analyzeCurrentSentence/);
   assert.match(app, /saveCurrentTraining/);
 });
