@@ -99,9 +99,12 @@ test('web UI exposes personal history and structured exports without upstream tr
   assert.match(runtime, /webkitSpeechRecognition/);
   assert.match(html, /id="asr-status"/);
   assert.match(html, /id="feedback-live"/);
-  assert.match(html, /style\.css\?v=20260718-1/);
-  assert.match(html, /runtime\.js\?v=20260718-1/);
-  assert.match(html, /app\.js\?v=20260718-1/);
+  const styleVersion = html.match(/style\.css\?v=([\d-]+)/)?.[1];
+  const runtimeVersion = html.match(/runtime\.js\?v=([\d-]+)/)?.[1];
+  const appVersion = html.match(/app\.js\?v=([\d-]+)/)?.[1];
+  assert.match(styleVersion || '', /^\d{8}-\d+$/);
+  assert.strictEqual(runtimeVersion, styleVersion);
+  assert.strictEqual(appVersion, styleVersion);
   assert.match(app, /createSpeechController/);
   assert.match(app, /createLatestOnlyRunner/);
   assert.match(app, /renderLiveFeedback/);
