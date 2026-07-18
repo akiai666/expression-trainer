@@ -105,6 +105,10 @@ test('web UI exposes personal history and structured exports without upstream tr
   assert.match(app, /createSpeechController/);
   assert.match(app, /createLatestOnlyRunner/);
   assert.match(app, /renderLiveFeedback/);
+  assert.match(app, /正在识别/);
+  assert.match(app, /正在恢复语音识别/);
+  assert.match(app, /已暂停/);
+  assert.match(app, /当前浏览器不支持实时识别/);
   assert.doesNotMatch(app, /this\.recognition\s*=\s*new SpeechRecognition/);
   assert.match(app, /analyzeCurrentSentence/);
   assert.match(app, /saveCurrentTraining/);

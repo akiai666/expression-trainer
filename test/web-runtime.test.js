@@ -114,13 +114,13 @@ function createFakeRecognition() {
   assert.ok(statuses.includes('listening'));
 }
 
-{
+['network', 'no-speech', 'aborted'].forEach(errorCode => {
   const clock = createClock();
   const { Recognition, instances } = createFakeRecognition();
   const statuses = [];
   const controller = createSpeechController({ Recognition, timers: clock, onStatus: status => statuses.push(status) });
   controller.start();
-  instances[0].error('network');
+  instances[0].error(errorCode);
   instances[0].end();
   assert.strictEqual(controller.getState(), 'recording');
   assert.ok(statuses.includes('recovering'));
@@ -129,7 +129,7 @@ function createFakeRecognition() {
   clock.tick(1);
   assert.strictEqual(instances.length, 2);
   assert.strictEqual(instances[1].startCalls, 1);
-}
+});
 
 {
   const clock = createClock();
