@@ -60,6 +60,14 @@ models/
     └── tokens.txt
 ```
 
+如果模型已经存在于其他目录，可以直接复用，不必重复下载：
+
+```bash
+EXPRESSION_TRAINER_MODELS_DIR=/绝对路径/models npm start
+```
+
+该变量既可以指向 `models` 根目录，也可以直接指向模型子目录。
+
 ### 3. 配置 AI 后端
 
 启动后点击右上角 ⚙️ 进入设置页面。
