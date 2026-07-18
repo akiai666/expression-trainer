@@ -97,6 +97,15 @@ test('web UI exposes personal history and structured exports without upstream tr
   assert.doesNotMatch(html + app, /posthog|cola-dispatch|宇宙无敌|fxy2311-youyou/i);
   assert.match(html, /runtime\.js/);
   assert.match(runtime, /webkitSpeechRecognition/);
+  assert.match(html, /id="asr-status"/);
+  assert.match(html, /id="feedback-live"/);
+  assert.match(html, /style\.css\?v=20260718-1/);
+  assert.match(html, /runtime\.js\?v=20260718-1/);
+  assert.match(html, /app\.js\?v=20260718-1/);
+  assert.match(app, /createSpeechController/);
+  assert.match(app, /createLatestOnlyRunner/);
+  assert.match(app, /renderLiveFeedback/);
+  assert.doesNotMatch(app, /this\.recognition\s*=\s*new SpeechRecognition/);
   assert.match(app, /analyzeCurrentSentence/);
   assert.match(app, /saveCurrentTraining/);
 });

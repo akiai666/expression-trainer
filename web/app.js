@@ -565,9 +565,19 @@ class ExpressionTrainer {
     });
     this.historyStore = ExpressionHistory.createHistoryStore(localStorage);
     this.historyEntries = [];
-    this.recognition = null;
+    this.speechController = null;
+    this.finalResultQueue = Promise.resolve();
+    this.recordingFinalized = true;
 
     this.initElements();
+    this.previewRunner = ExpressionRuntime.createLatestOnlyRunner(
+      text => this.analyzePreview(text),
+      (text, analysis) => {
+        this.renderSubtitle(text, false, analysis);
+        this.renderLiveFeedback(analysis);
+      },
+      error => console.error('[Preview] Error:', error)
+    );
     this.bindEvents();
     this.showWelcome();
     this.loadHistoryList();
@@ -589,8 +599,10 @@ class ExpressionTrainer {
     this.btnSaveText = document.getElementById('btn-save-text');
     this.btnClear = document.getElementById('btn-clear');
     this.timer = document.getElementById('timer');
+    this.asrStatus = document.getElementById('asr-status');
     this.subtitleScroll = document.getElementById('subtitle-scroll');
     this.subtitleContainer = document.getElementById('subtitle-container');
+    this.feedbackLive = document.getElementById('feedback-live');
     this.feedbackContent = document.getElementById('feedback-content');
 
     // Modals
@@ -852,68 +864,22 @@ class ExpressionTrainer {
     const SpeechRecognition = ExpressionRuntime.getSpeechRecognition(window);
     if (!SpeechRecognition) {
       const message = '当前浏览器不支持实时语音识别，请使用最新版 Chrome、Edge 或 Safari；也可以使用“粘贴逐字稿”';
+      this.updateASRStatus('unsupported', '当前浏览器不支持实时识别');
       this.showError(message);
       this.addFeedbackItem(message, 'ai');
-      return;
-    }
-
-    this.recognition = new SpeechRecognition();
-    this.recognition.lang = getLang() === 'en' ? 'en-US' : 'zh-CN';
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-
-    this.recognition.onresult = (event) => {
-      if (this.isPaused) return;
-      let interimTranscript = '';
-      let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (finalTranscript) {
-        this.handleASRResult({ text: finalTranscript, isFinal: true });
-      }
-      if (interimTranscript) {
-        this.handleASRResult({ text: interimTranscript, isFinal: false });
-      }
-    };
-
-    this.recognition.onerror = (event) => {
-      if (event.error === 'no-speech') return; // normal
-      if (event.error === 'aborted') return;
-      console.error('[ASR] Error:', event.error);
-      const message = ExpressionRuntime.getSpeechErrorMessage(event.error);
-      this.showError(message);
-      this.addFeedbackItem(message, 'ai');
-      if (this.isRecording) this.stopRecording();
-    };
-
-    this.recognition.onend = () => {
-      // Auto-restart if still recording
-      if (this.isRecording && !this.isPaused) {
-        try { this.recognition.start(); } catch (e) { /* ignore */ }
-      }
-    };
-
-    try {
-      this.recognition.start();
-    } catch (err) {
-      this.showError(`语音识别启动失败: ${err.message}`);
       return;
     }
 
     this.isRecording = true;
     this.isPaused = false;
+    this.recordingFinalized = false;
     this.startTime = Date.now();
     this.pausedTime = 0;
+    this.pauseStart = null;
     this.fullText = '';
     this.sentences = [];
+    this.finalResultQueue = Promise.resolve();
+    this.previewRunner.invalidate();
     this.lastFeedbackText = '';
     this.lastReport = '';
     this.currentHistoryId = null;
@@ -922,6 +888,26 @@ class ExpressionTrainer {
     this.resetStats();
     this.subtitleContainer.innerHTML = '';
     this.showAIStatus();
+
+    this.speechController = ExpressionRuntime.createSpeechController({
+      Recognition: SpeechRecognition,
+      lang: getLang() === 'en' ? 'en-US' : 'zh-CN',
+      inactivityMs: 15000,
+      finalizationMs: 500,
+      onInterim: text => this.handleASRResult({ text, isFinal: false }),
+      onFinal: text => {
+        this.finalResultQueue = this.finalResultQueue.then(() => this.handleASRResult({ text, isFinal: true }));
+      },
+      onStatus: status => this.updateASRStatus(status),
+      onError: code => this.handleSpeechError(code),
+      onSettled: state => this.handleSpeechSettled(state)
+    });
+    if (!this.speechController.start()) {
+      this.isRecording = false;
+      this.recordingFinalized = true;
+      this.updateASRStatus('error', '语音识别启动失败');
+      return;
+    }
 
     // UI
     this.btnStart.classList.add('hidden');
@@ -939,47 +925,61 @@ class ExpressionTrainer {
   }
 
   pauseRecording() {
+    if (!this.speechController || !this.isRecording || this.isPaused) return;
     this.isPaused = true;
     this.pauseStart = Date.now();
-    if (this.recognition) {
-      try { this.recognition.stop(); } catch (e) { /* ignore */ }
-    }
+    this.previewRunner.invalidate();
+    this.renderLiveFeedback(null);
+    this.speechController.pause();
     this.btnPause.classList.add('hidden');
     this.btnResume.classList.remove('hidden');
     this.timer.classList.remove('active');
   }
 
   resumeRecording() {
+    if (!this.speechController || !this.isRecording || !this.isPaused) return;
     this.isPaused = false;
     this.pausedTime += Date.now() - this.pauseStart;
     this.pauseStart = null;
-    if (this.recognition) {
-      try { this.recognition.start(); } catch (e) { /* ignore */ }
-    }
+    this.speechController.resume();
     this.btnResume.classList.add('hidden');
     this.btnPause.classList.remove('hidden');
     this.timer.classList.add('active');
   }
 
   stopRecording() {
-    if (this.recognition) {
-      try { this.recognition.stop(); } catch (e) { /* ignore */ }
-      this.recognition = null;
-    }
+    if (!this.isRecording || !this.speechController) return;
     this.isRecording = false;
     this.isPaused = false;
+    this.previewRunner.invalidate();
+    this.renderLiveFeedback(null);
+    this.prepareStoppedUI();
+    this.speechController.stop();
+  }
 
+  prepareStoppedUI() {
     clearInterval(this.timerInterval);
-    let totalPaused = this.pausedTime;
-    if (this.pauseStart) totalPaused += Date.now() - this.pauseStart;
-    this.stats.duration = Math.floor((Date.now() - this.startTime - totalPaused) / 1000);
-
-    // UI
+    this.timerInterval = null;
     this.btnStop.classList.add('hidden');
     this.btnPause.classList.add('hidden');
     this.btnResume.classList.add('hidden');
     this.btnStart.classList.remove('hidden');
     this.timer.classList.remove('active');
+  }
+
+  async handleSpeechSettled(state) {
+    if (state !== 'idle' || this.recordingFinalized) return;
+    this.recordingFinalized = true;
+    await this.finalResultQueue;
+    this.finalizeStoppedRecording();
+  }
+
+  finalizeStoppedRecording() {
+    if (!this.startTime) return;
+
+    let totalPaused = this.pausedTime;
+    if (this.pauseStart) totalPaused += Date.now() - this.pauseStart;
+    this.stats.duration = Math.floor((Date.now() - this.startTime - totalPaused) / 1000);
 
     if (this.fullText.trim()) {
       this.btnReport.classList.remove('hidden');
@@ -993,21 +993,61 @@ class ExpressionTrainer {
     }
   }
 
+  handleSpeechError(code) {
+    const message = ExpressionRuntime.getSpeechErrorMessage(code);
+    console.error('[ASR] Error:', code);
+    this.isRecording = false;
+    this.isPaused = false;
+    this.previewRunner.invalidate();
+    this.renderLiveFeedback(null);
+    this.prepareStoppedUI();
+    this.updateASRStatus('error', message);
+    this.showError(message);
+    this.addFeedbackItem(message, 'ai');
+  }
+
+  updateASRStatus(status, overrideText = '') {
+    const labels = {
+      listening: '正在识别',
+      recovering: '正在恢复语音识别…',
+      paused: '已暂停',
+      idle: '',
+      error: '语音识别不可用',
+      unsupported: '当前浏览器不支持实时识别'
+    };
+    const text = overrideText || labels[status] || '';
+    this.asrStatus.textContent = text;
+    this.asrStatus.dataset.state = status;
+    this.asrStatus.classList.toggle('hidden', !text);
+  }
+
   // ===== ASR结果处理 =====
   async handleASRResult({ text, isFinal }) {
+    const normalizedText = String(text || '').trim();
+    if (!normalizedText) {
+      if (!isFinal) {
+        this.previewRunner.invalidate();
+        this.renderLiveFeedback(null);
+        const interim = this.subtitleContainer.querySelector('.interim-line');
+        if (interim) interim.remove();
+      }
+      return;
+    }
     if (isFinal) {
-      this.sentences.push(text);
-      this.fullText += text;
-      const analysis = await this.analyzeCurrentSentence(text);
+      this.previewRunner.invalidate();
+      this.renderLiveFeedback(null);
+      this.sentences.push(normalizedText);
+      this.fullText += normalizedText;
+      const analysis = await this.analyzeCurrentSentence(normalizedText);
 
       // 每30字触发一次AI反馈
       if (this.fullText.length - this.lastFeedbackText.length >= 30) {
         this.requestRealtimeFeedback();
       }
-      this.renderSubtitle(text, true, analysis);
+      this.renderSubtitle(normalizedText, true, analysis);
       return;
     }
-    this.renderSubtitle(text, isFinal);
+    this.previewRunner.run(normalizedText);
   }
 
   renderSubtitle(currentText, isFinal, analysis = null) {
@@ -1030,7 +1070,7 @@ class ExpressionTrainer {
         interim.className = 'subtitle-line interim-line';
         this.subtitleContainer.appendChild(interim);
       }
-      interim.textContent = currentText;
+      interim.innerHTML = this.highlightText(currentText, analysis);
     }
 
     this.subtitleScroll.scrollTop = this.subtitleScroll.scrollHeight;
@@ -1059,6 +1099,28 @@ class ExpressionTrainer {
   }
 
   // ===== 分析 =====
+  async analyzePreview(text) {
+    const analyzer = getLang() === 'zh' ? await this.analyzerPromise : null;
+    return analyzer ? analyzer(text) : analyzeText(text);
+  }
+
+  renderLiveFeedback(analysis) {
+    this.feedbackLive.textContent = '';
+    const items = analysis ? ExpressionRuntime.buildLocalFeedback(analysis).slice(0, 4) : [];
+    this.feedbackLive.classList.toggle('hidden', items.length === 0);
+    if (!items.length) return;
+    const title = document.createElement('div');
+    title.className = 'feedback-live-title';
+    title.textContent = '本句实时提示';
+    this.feedbackLive.appendChild(title);
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = `feedback-live-item type-${item.type || 'ai'}`;
+      row.textContent = item.message;
+      this.feedbackLive.appendChild(row);
+    });
+  }
+
   async analyzeCurrentSentence(text) {
     const analyzer = getLang() === 'zh' ? await this.analyzerPromise : null;
     const analysis = analyzer ? analyzer(text) : analyzeText(text);
@@ -1336,6 +1398,7 @@ class ExpressionTrainer {
     this.vocabularyHits = [];
     this.updateStatsDisplay();
     this.feedbackContent.innerHTML = '';
+    this.renderLiveFeedback(null);
   }
 
   showAIStatus() {
@@ -1380,6 +1443,7 @@ class ExpressionTrainer {
   }
 
   clearAll() {
+    this.previewRunner.invalidate();
     this.fullText = '';
     this.sentences = [];
     this.lastReport = '';
@@ -1389,7 +1453,9 @@ class ExpressionTrainer {
     this.currentSource = 'recording';
     this.subtitleContainer.innerHTML = '<div class="subtitle-line hint">点击下方按钮开始说话</div>';
     this.feedbackContent.innerHTML = '';
+    this.renderLiveFeedback(null);
     this.resetStats();
+    this.updateASRStatus('idle');
     this.timer.textContent = '00:00';
     this.timer.classList.remove('active');
     this.btnReport.classList.add('hidden');

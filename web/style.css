@@ -150,6 +150,21 @@ button, input, select, textarea, .subtitle-scroll, .feedback-content, .modal-bod
   line-height: 1.6;
   color: #ccc;
 }
+.feedback-live {
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid rgba(229, 0, 126, 0.45);
+  border-radius: 8px;
+  background: rgba(229, 0, 126, 0.06);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.feedback-live-title { color: #E5007E; font-weight: 600; margin-bottom: 4px; }
+.feedback-live-item { color: #ccc; overflow-wrap: anywhere; }
+.feedback-live-item.type-vague { color: #ffd43b; }
+.feedback-live-item.type-filler { color: #ff8a8a; }
+.feedback-live-item.type-hedge { color: #ffa94d; }
+.feedback-live-item.type-emotion { color: #b197fc; }
 .feedback-item {
   padding: 8px 0;
   border-bottom: 1px solid #1a1a1a;
@@ -182,6 +197,17 @@ button, input, select, textarea, .subtitle-scroll, .feedback-content, .modal-bod
 }
 .app-title { font-size: 13px; color: #555; letter-spacing: 1px; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
+.asr-status {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #69db7c;
+}
+.asr-status[data-state="recovering"] { color: #ffa94d; }
+.asr-status[data-state="paused"] { color: #aaa; }
+.asr-status[data-state="error"], .asr-status[data-state="unsupported"] { color: #ff6b6b; }
 .timer { font-size: 16px; font-family: "SF Mono", monospace; color: #555; }
 .timer.active { color: #E5007E; animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }

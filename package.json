@@ -9,7 +9,7 @@
     "build:web": "node scripts/build-web-assets.js",
     "build:web:dlut": "node scripts/build-web-assets.js --with-dlut",
     "setup:dlut": "node scripts/setup-dlut-data.js",
-    "test": "node test/lexicon.test.js && node test/lexicon-optional-data.test.js && node test/dlut-setup.test.js && node test/data-license.test.js && node test/prompts.test.js && node test/report-renderer.test.js && node test/ai-feedback.test.js && node test/ui-report.test.js && node test/history-store.test.js && node test/web-runtime.test.js && node test/web.test.js"
+    "test": "node test/lexicon.test.js && node test/lexicon-optional-data.test.js && node test/dlut-setup.test.js && node test/data-license.test.js && node test/prompts.test.js && node test/report-renderer.test.js && node test/ai-feedback.test.js && node test/ui-report.test.js && node test/history-store.test.js && node test/web-runtime.test.js && node test/web-preview.test.js && node test/web.test.js"
   },
   "keywords": ["expression", "training", "speech", "asr", "chinese"],
   "author": "sisi",
