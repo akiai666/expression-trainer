@@ -271,4 +271,28 @@ function createFakeRecognition() {
   assert.strictEqual(instances.filter(instance => instance.abortCalls === 1).length, 5);
 }
 
+{
+  const clock = createClock();
+  const { Recognition, instances } = createFakeRecognition();
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  global.setTimeout = function (fn, delay) {
+    if (this !== global) throw new TypeError('Illegal invocation');
+    return clock.setTimeout(fn, delay);
+  };
+  global.clearTimeout = function (id) {
+    if (this !== global) throw new TypeError('Illegal invocation');
+    return clock.clearTimeout(id);
+  };
+  try {
+    const controller = createSpeechController({ Recognition, inactivityMs: 15000 });
+    assert.doesNotThrow(() => controller.start());
+    assert.strictEqual(controller.getState(), 'recording');
+    assert.strictEqual(instances[0].abortCalls, 0);
+  } finally {
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+  }
+}
+
 console.log('PASS web runtime reports speech and AI availability clearly');

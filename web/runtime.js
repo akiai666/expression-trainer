@@ -43,7 +43,7 @@
 
   function createSpeechController(options = {}) {
     const Recognition = options.Recognition;
-    const timers = options.timers || { setTimeout, clearTimeout };
+    const timers = options.timers || globalThis;
     const backoffMs = options.backoffMs || [250, 500, 1000, 2000, 5000];
     const inactivityMs = options.inactivityMs || 15000;
     const finalizationMs = options.finalizationMs || 500;
